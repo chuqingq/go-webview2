@@ -1,3 +1,81 @@
+Fork of https://github.com/jchv/go-webview2.
+
+## new features
+
+1. use `SetProcessDpiAwarenessContext` and `GetDpiForSystem` to solve HiDPI blurry problem.
+```go
+//go:build windows
+// +build windows
+
+package main
+
+import (
+	"fmt"
+	"log"
+	"syscall"
+
+	"github.com/jchv/go-webview2"
+)
+
+func runGUIWebview2(url string) error {
+	// 先尝试启动webview2
+	w := webview2.NewWithOptions(webview2.WebViewOptions{
+		Debug:     false,
+		AutoFocus: true,
+		WindowOptions: webview2.WindowOptions{
+			Title:  "CyberMonk设备网络搜索",
+			Width:  scaleDpi(windowWidth),
+			Height: scaleDpi(windowHeight),
+			IconId: 2, // icon resource id
+			Center: true,
+		},
+	})
+
+	// 如果webview2启动失败，再尝试启动默认浏览器
+	if w == nil {
+		log.Printf("Failed to load webview2.")
+		return errGUIError
+	}
+
+	// 如果webview2成功
+	defer w.Destroy()
+	// w.SetTitle("CyberMonk设备搜索工具")
+	w.Navigate(url)
+	w.SetSize(int(scaleDpi(windowWidth)), int(scaleDpi(windowHeight)), webview2.HintMin)
+	w.Run()
+
+	return nil
+}
+
+const windowWidth uint = 900
+const windowHeight uint = 750
+
+const origDpi uint = 96
+
+var realDpi uint = origDpi
+
+func scaleDpi(i uint) uint {
+	return i * realDpi / origDpi
+}
+
+func init() {
+	dll := syscall.MustLoadDLL("user32")
+	if proc, err := dll.FindProc("SetProcessDpiAwarenessContext"); err == nil {
+		aware := -4
+		proc.Call(uintptr(aware))
+	}
+
+	if proc, err := dll.FindProc("GetDpiForSystem"); err == nil {
+		dpi, _, _ := proc.Call()
+		fmt.Printf("dpi: %v", dpi)
+		realDpi = uint(dpi)
+	}
+}
+
+```
+
+
+
 [![Go](https://github.com/jchv/go-webview2/actions/workflows/go.yml/badge.svg)](https://github.com/jchv/go-webview2/actions/workflows/go.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/jchv/go-webview2)](https://goreportcard.com/report/github.com/jchv/go-webview2) [![Go Reference](https://pkg.go.dev/badge/github.com/jchv/go-webview2.svg)](https://pkg.go.dev/github.com/jchv/go-webview2)
 
 # go-webview2
